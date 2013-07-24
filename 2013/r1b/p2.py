@@ -10,28 +10,41 @@ with open('problem2') as f:
     print "N=%d X=%d Y=%d" % (N, X, Y)
 
 
-    i = (1.+math.sqrt(1.+8.*N))/4.
-    si = math.floor(i)
-    ei = si + 1
-    print "need to look between floor(%s)=%d and ceil(%s)=%d" % (i, math.floor(i), i, math.floor(i) + 1)
+    i = (1.+math.sqrt(1.+8.*N))/4. - 1.
+    si = math.floor(i) * 2
+    ei = si + 2
+    print "need to look between floor(%s)=%d and ceil(%s)=%d" % (i, si, i, ei)
 
 
-    if (X < -si or X > si or
-       Y > si - X and X > 0 or 
-       Y > X + si and X < 0):
+    if (X < -ei or X > ei or
+       Y > ei - X and X >= 0 or 
+       Y > X + ei and X < 0):
+      print "no chance X=%d Y=%d ei=%d" % (X, Y, ei)
       result = 0.
     else:
-      if (X < 0 and Y < si - X or
-         X > 0 and Y < X + si):
+      if (X < 0 and Y < ei - X or
+         X >= 0 and Y < X + ei):
+        print "for sure"
         result = 1.
       else:
-        result = 1.
-        r = N - si
-        cx = -si
-        cy = 0
-        while r > 0 and (cx != X and cy != Y):
-          
-          result = result / 2.
+        lastOne = 2 * ei * ei - ei
+        nDiamonds = N - lastOne
+        if nDiamonds == 0:
+          result = 1.
+        else:
+          capacity = ei + 1
+          overflow = max(math.ceil(nDiamonds/2) - capacity, 0)
+          print "lastOne=%d nDiamonds=%d ei=%d capacity=%d overflow=%d" % (lastOne, nDiamonds, ei, capacity, overflow)
+
+          if Y < overflow:
+            result = 1.
+          elif Y > nDiamonds:
+            result = 0.
+          else:
+            capacityInPlay = capacity - overflow
+            diamondsInPlay = nDiamonds - overflow * 2
+            print "\tcapacityInPlay=%d diamondsInPlay=%d" % (capacityInPlay, diamondsInPlay)
+            result = (diamondsInPlay - (Y - overflow) - 1) / (diamondsInPlay - (Y - overflow))
 
     print "Case #%d: %d" % (iT + 1, result)
     iT += 1
