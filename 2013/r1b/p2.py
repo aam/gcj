@@ -1,13 +1,15 @@
 import os
 import math
 
+from decimal import *
+
 with open('problem2') as f:
   T = int(f.readline().strip())
   iT = 0
 
   while iT < T:
     [N, X, Y] = map(int, f.readline().strip().split(' '))
-    print "N=%d X=%d Y=%d" % (N, X, Y)
+    #print "N=%d X=%d Y=%d" % (N, X, Y)
 
 
     i = (1.+math.sqrt(1.+8.*N))/4. - 1.
@@ -16,56 +18,49 @@ with open('problem2') as f:
     else:
       si = math.floor(i) * 2 # height of last fully completed triangle
       ei = si + 2 # height of outer triangle
-      print "i=%s need to look between si=%d and ei=%d" % (i, si, ei)
+      #print "i=%s need to look between si=%d and ei=%d" % (i, si, ei)
 
       if (Y <= si - abs(X)): 
-        print "for sure (X,Y)=(%d, %d) inside of inner triangle since Y=%d <= si=%d - abs(X)=%d" % (X, Y, Y, si, abs(X))
+        #print "for sure (X,Y)=(%d, %d) inside of inner triangle since Y=%d <= si=%d - abs(X)=%d" % (X, Y, Y, si, abs(X))
         result = 1.
       elif (Y > ei - abs(X)):
-        print "no chance since (X,Y)=(%d, %d) outside of outer triangle since Y=%d > ei=%d - abs(X)=%d" % (X, Y, Y, ei, abs(X))
+        #print "no chance since (X,Y)=(%d, %d) outside of outer triangle since Y=%d > ei=%d - abs(X)=%d" % (X, Y, Y, ei, abs(X))
         result = 0.
       else:
-        print "now (X,Y)=(%d, %d) should be on outer triangle side" % (X, Y)
-        lastOne = (2 * si * si - si) if si > 0 else 1
+        #print "now (X,Y)=(%d, %d) should be on outer triangle side" % (X, Y)
+        lastOne = (2 * (si / 2 + 1) * (si/2 + 1) - (si/2 + 1)) if si > 0 else 1
         nDiamonds = N - lastOne
-        print "lastOne=%d nDiamonds=%d" % (lastOne, nDiamonds)
+        #print "lastOne=%d nDiamonds=%d" % (lastOne, nDiamonds)
         if nDiamonds == 0:
-          result = 1.
+          result = 1.0 if X == 0 else 0.0
         else:
-          steps = nDiamonds
-          slots = ei
-
-          slot = Y + 1
-          step = nDiamonds
-
-          if step > slots and slot <= steps - slot:
+          overflow = max(nDiamonds - ei, 0)
+          #print "overflow = %d" % (overflow)
+          if Y < overflow:
             result = 1.
-            print "result=%s since step=%d > slots=%d and slot=%d <= steps-slot=%d" % (result, step, slots, slot, steps-slot)
           else:
-            print "step=%d, slot=%d out of %d" % ( step, slot, slots)
-            denom = step + 1 if step <= slots else slots - (step - slots - 1)
-            numerator = step - (slots  - slot) + 1 if step < slots else slots - slot + 1.
-            result = numerator / denom
-            print "result = %s/%s = %s" % ( numerator, denom, result)
+            capacity = ei - overflow
+            Y = Y - overflow
 
-        # if slots > steps
+            nDiamonds -= overflow*2
+            upperRange = nDiamonds if nDiamonds <= ei else 2*ei - nDiamonds
 
+            #print "capacity=%d, Y=%d, nDiamonds=%d, upperRange=%d" % (capacity, Y, nDiamonds, upperRange)
 
-        # capacity = ei
-
-        # overflow = max(math.ceil(nDiamonds/2) - capacity, 0)
-        # print "lastOne=%d nDiamonds=%d si=%d capacity=%d overflow=%d" % (lastOne, nDiamonds, si, capacity, overflow)
-
-        # if Y < overflow:
-        #   result = 1.
-        # elif Y > nDiamonds:
-        #   result = 0.
-        # else:
-        #   capacityInPlay = capacity - overflow
-        #   diamondsInPlay = nDiamonds - overflow * 2
-        #   print "\tcapacityInPlay=%d diamondsInPlay=%d" % (capacityInPlay, diamondsInPlay)
-        #   print "result = %d/%d" % (( diamondsInPlay - (Y - overflow) - 1.) ,  (diamondsInPlay - (Y - overflow)))
-        #   result = (diamondsInPlay - (Y - overflow) - 1.) / (diamondsInPlay - (Y - overflow))
+            if Y + 1 > upperRange:
+              # target spot is above upper range what nDiamonds can get to
+              result = 0.
+            else:
+              sums = 0
+              for s in range(int(Y) + 1):
+                # Count number of cases where number of diamonds on one side(bits set to 1)
+                # is less than Y.
+                # Number of cases where number of bits is s is calculcated as 
+                # n choose k where n is capacity, k is s n choose k = n!/((n-k)!k!)
+                sums += Decimal(math.factorial(upperRange))/Decimal(math.factorial(upperRange-s)*math.factorial(s))
+                #print "s=%s sums=%s" % (s, sums)
+              #print "sums=%s" % (sums)
+              result = 1 - sums/Decimal(2**upperRange)
 
     print "Case #%d: %s" % (iT + 1, result)
     iT += 1
