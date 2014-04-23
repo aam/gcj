@@ -1,0 +1,6 @@
+name: gcj2014q
+description: A sample command-line application
+dependencies:
+  intl: any
+dev_dependencies:
+  unittest: any
