@@ -156,7 +156,7 @@ inc(List m, bigCounter, R, C, M) {
 }
 
 void main() {
-  File f = new File('C-small-attempt0.in'); // minesweeper.txt'); //
+  File f = new File('minesweeper.txt'); //C-small-attempt0.in'); // minesweeper.txt'); //
   var lines = f.readAsLinesSync();
   var T = int.parse(lines[0]);
   int lineNo = 1;
