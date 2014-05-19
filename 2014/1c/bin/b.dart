@@ -1,7 +1,7 @@
 import "dart:io";
 
 log(s) {
-  print(s);
+//  print(s);
 }
 
 class CarLetter {
@@ -15,58 +15,100 @@ class CarLetter {
 
 class LetterGraphNode {
   String letter;
+  num cyclicWords = 0;
   var incoming = new Set<LetterGraphNode>();
   var outgoing = new Set<LetterGraphNode>();
   LetterGraphNode(String this.letter);
   toString() { return "$letter${outgoing.isNotEmpty?'->$outgoing':''}"; }
 }
 
+factorial(num n) {
+  var fact = 1;
+  for (var i = 1; i <= n; i++) {
+    fact *= i;
+  }
+  return fact;
+}
+
 class LetterGraph {
-  var nodes;
-  var mapLetterToNode;
+  Set<LetterGraphNode> nodes =
+      new Set<LetterGraphNode>();
+  Map<String, LetterGraphNode> mapLetterToNode =
+      new Map<String, LetterGraphNode>();
+  
   LetterGraph(Map<String, List<CarLetter>> letters) {
-    nodes = new Set<LetterGraphNode>();
-    mapLetterToNode = new Map<String, LetterGraphNode>();
-    letters.forEach((letter, list) {
-        list.forEach((CarLetter carletter) {
-            if (carletter.isHead) {// || carletter.isTail) {
-              var lgn = new LetterGraphNode(letter);
-              nodes.add(lgn);
-              mapLetterToNode.putIfAbsent(letter, () => lgn);
-            };
-        });
-    });
-    letters.forEach((letter, list) {
-        var lgn = mapLetterToNode[letter];
-        list.forEach((CarLetter carletter) {
-          if (carletter.isHead) {
-            var lastchar = carletter.car[carletter.car.length-1];
-            if (mapLetterToNode.containsKey(lastchar)) {
-              var destination = mapLetterToNode[lastchar];
-              if (destination != lgn) {
-                lgn.outgoing.add(destination);
-                destination.incoming.add(lgn);
-              }
+    // create all LetterGraphNodes for all head or tail letters
+    letters.forEach((letter, listCarLetters) {
+      listCarLetters.forEach(
+          (CarLetter carletter) {
+            if (carletter.isHead || carletter.isTail) {
+              mapLetterToNode.putIfAbsent(
+                  letter, 
+                  () {
+                    var lgn = new LetterGraphNode(letter);
+                    nodes.add(lgn);
+                    return lgn;
+                  });
             }
-          }
-        }); 
+          });
+    });
+    // create edges between LetterGraphNodes based on 
+    // head/tail letters used on cars 
+    letters.forEach((String letter, List<CarLetter> list) {
+        var lgn = mapLetterToNode[letter];
+        list.forEach(
+            (CarLetter carletter) {
+              if (carletter.isHead) {
+                var lastchar = carletter.car[carletter.car.length-1];
+                if (mapLetterToNode.containsKey(lastchar)) {
+                  var destination = mapLetterToNode[lastchar];
+                  if (destination != lgn) {
+                    if (lgn.outgoing.length > 0) {
+                      nodes = null;
+                      return;
+                    }
+                    lgn.outgoing.add(destination);
+                    if (destination.incoming.length > 0) {
+                      nodes = null;
+                      return;
+                    }
+                    destination.incoming.add(lgn);
+                  } else {
+                    // cyclic word
+                    lgn.cyclicWords++;
+                  }
+                }
+              }
+        });
+        if (nodes == null) {
+          return;
+        }
     });
   }
   
-  numberOfComponents() {
+  numberOfComponentsAndRepetitionFactor() {
     Set workingset = new Set();
     workingset.addAll(nodes);
-    var components = 0; 
+    var components = 0;
+    var repetitionFactor = 1;
     while (workingset.isNotEmpty) {
-      LetterGraphNode node = workingset.first;
-      var reachable = findAllReachable(node, []);
+      LetterGraphNode node = null;
+      try {
+        node = workingset.firstWhere((node) => node.incoming.length == 0);
+      } catch (StateError) { // got cycle: no element with zero incoming edges 
+        return null;
+      }
+      List reachable = findAllReachable(node, []);
       if (reachable == null) {
         return null;
       }
+      var rf = reachable.fold(1, (S, LetterGraphNode node) =>
+          S * factorial(node.cyclicWords));
+      repetitionFactor *= rf;
       workingset.removeAll(reachable);
       components++;
     }
-    return components;
+    return [components, repetitionFactor];
   }
   
   findAllReachable(LetterGraphNode node, List reachable) {
@@ -89,28 +131,63 @@ class LetterGraph {
   toString() { return "$nodes"; }
 }
 
+class Result {
+  int count = 0;
+}
+
+tryOne(List cars, Set choice, List selection, Result result) {
+  for (var index in choice) {
+    var reducedChoice = new Set();
+    reducedChoice.addAll(choice);
+    reducedChoice.remove(index);
+    List newSelection = new List.from(selection);
+    newSelection.add(index);
+    if (newSelection.length < cars.length) {
+      tryOne(cars, reducedChoice, newSelection, result);
+      if (result.count == null) {
+        break;
+      }
+    } else {
+      StringBuffer sb = new StringBuffer();
+      for (var index in newSelection) {
+        sb.write(cars[index]);
+      }
+      Set chars = new Set();
+      var prevchar = "";
+      var valid = true;
+      for (var char in sb.toString().split("")) {
+        if (prevchar != "" && char != prevchar) {
+          if (chars.contains(char)) {
+            valid = false;
+            break;
+          }
+        }
+        prevchar = char;
+        chars.add(char);
+      }
+      if (valid) {
+        result.count++;
+      }
+    }
+  }
+}
+
 main() {
   var s = [
     '1',
-    '4',
-    'a cd abc',
     '2',
-    'vvvvvvvvvvvvvbbbbbbbbbbbbbbbbbbsssssssssssssfffffffffppppppppppppppplllllllllllllllll ttttzzzzzzzzzyyyyyaaaaooooooiiiiiiiiiinnnjjjjjjjjmmmmdddddddgggcccccxxxxxeeeeeeeeeeqqqqqhhhhrrrrrr',
-    '5',
-    'xx fffffrrrrrrrrrrrr xssssttwwwf rrr ffffffffff',
+    'ab ab',
     '3',
     'ab bbbc cd',
-    '8',
-    'iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj qqqqqqqqqqqqqnnnnnnnnnnnnnnnnnnnnnnnnnlllllllllllllllhhhhhhhhhhhhhhhhhh ssssvxxxxbbb uuuuuuuuuuuuuuuuuutttttttttttttttttttttttttffffffffffffffffffffffffffffff uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu gggwwwwwwwrrrrrraaaaoooooooppppppyyyyyyyeeeeeeeccccccccccdddddddmmmmmmmzzzzzzkkkk uuuuuuuuuuuuuuuuuuuuuuuuuuuuu',
     '4',
     'aa aa bc c',
     '2',
     'abc bcd',
 ];
-  var it = s.iterator; it.moveNext();
+//  var it = s.iterator; it.moveNext();
       
-  File f = new File('B-small-practice (2).in');
-//  var it = f.readAsLinesSync().iterator..moveNext();
+  File f = new File('B-large-practice (1).in');
+  var it = f.readAsLinesSync().iterator..moveNext();
   var T = int.parse(it.current); it.moveNext();
   for (var t = 0; t < T; t++) {
     var N = int.parse(it.current); it.moveNext();
@@ -119,151 +196,83 @@ main() {
     for (var c in carsraw) {
       var newc = [];
       for (var ch in c.split('')) {
-        if (newc.isEmpty || newc.last != ch) {
+        if (newc.isEmpty 
+            || newc.last != ch) { // compressing repeated characters
           newc.add(ch);
         }
       }
       cars.add(newc.join());
     }
-    var carsset = new Set();
-    carsset.addAll(cars);
-    var factor = 1 << (cars.length - carsset.length);
-    
-    var letters = new Map<String, List<CarLetter>>();
-    var count = factor;
-    for (String car in carsset) {
-      for (var i = 0; i < car.length; i++) {
-        var c = car[i];
-        var head = i == 0;
-        var tail = i == car.length - 1;
-        if (tail && (i != car.length - 1)) continue;
-        if (letters.containsKey(c)) {
-          if (!head && !tail) {
-            for (CarLetter cl in letters[c]) {
-              if (cl.car != car) {
-                count = null; // can be only one char with this car inside
-                break;
-              } else {
-                var mid = cl.index;
-                if (car.substring(mid, i) != (c * (i - mid))) {
-                  count = null; // has to be contiguous section
-                  break;
-                }
-              }
-            }
-            if (count != null) {
-              continue; // skip mid repetition of character
-            } else {
-              // can't build good set
-              break;
-            }
-          }
-          if (head && !tail) {
-            for (CarLetter cl in letters[c]) {
-              if (cl.car != car && !cl.isTail) {
-                // can't build good set
-                count = null;
-                break;
-              }
-            }
-          } else if (!head && tail) {
-            for (CarLetter cl in letters[c]) {
-              if (cl.car != car && !cl.isHead) {
-                // can't build good set
-                count = null;
-                break;
-              }
-            }
-          } else {
-            // head and tail
-            for (CarLetter cl in letters[c]) {
-              if (cl.car != car && !(cl.isHead || cl.isTail)) {
-                // can't build good set
-                count = null;
-                break;
-              }
-            }
-          }
-        } else {
-          letters.putIfAbsent(c, () => []);
-        }
-        letters[c].add(new CarLetter(car, i));
-      }
-      if (count == null) {
+
+    var count = 1;
+
+    for (String car in cars) {
+      if (car[0] == car[car.length-1] && car.length > 1) {
+        count = null;
         break;
       }
     }
-    log(letters);
+
+    var letters = new Map<String, List<CarLetter>>();
+    
+    if (count != null) {
+      var set = new Set();
+      set.addAll(new List.generate(N, (i) => i));
+      var result = new Result();
+//
+//      bruteforce for debugging      
+//      
+//      tryOne(cars, set, [], result);
+//      print(result.count);
+      
+      for (String car in cars) {
+        for (var i = 0; i < car.length; i++) {
+          var c = car[i];
+          letters.putIfAbsent(c, () => []);
+          letters[c].add(new CarLetter(car, i));
+        }
+      }
+      log(letters);
+      
+      // validate mid-word characters show up only once
+      for (var listCarLetters in letters.values) {
+        var midCount = listCarLetters.fold(0, (count, CarLetter cl) =>
+          count + (!cl.isHead && !cl.isTail? 1: 0));
+        if (midCount > 0) {
+          if (midCount > 1 || listCarLetters.length > 1) {
+            count = null; // can't have same character in more than one CarLetter
+            break;
+          }
+        }
+      }
+    }
+    
     log(count);
     if (count != null) {
 
       var lettergraph = new LetterGraph(letters);
       log(lettergraph);
-      var components = lettergraph.numberOfComponents();
-      log(components);
-      
-//      var carssetOccurrences = {};
-//      for (var c in cars) {
-//        carssetOccurrences.putIfAbsent(c, () => 0);
-//      }
-//      var freeCars = new List.from(cars);
-//      for (var char in letters.keys) {
-//        var nHeads = 0;
-//        var nTails = 0;
-//        for (var cl in letters[char]) {
-//          if (cl.isHead) {
-//            nHeads++;
-//          }
-//          if (cl.isTail){
-//            nTails++;
-//          }
-//        }
-//        if (nHeads > 0 && nTails > 0) {
-//          // all words with char as head is bound 
-//          // to all words with char as tail
-//          for (var cl in letters[char]) {
-//            if (cl.isHead) {
-//              heads.add(cl.car);
-//              freeCars.remove(cl.car);
-//            }
-//            if (cl.isTail){
-//              tails.add(cl.car);
-//              freeCars.remove(cl.car);
-//            }
-//          }
-//        }
-//      }
-//      for (var bc in boundCars) {
-//        freeCars.remove(bc);
-//      }
-//      
-//      var cnt = freeCars.length;
-//      for (var char in letters.keys) {
-//        var nHeads = 0;
-//        var nTails = 0;
-//        for (var cl in letters[char]) {
-//          if (boundCars.contains(cl.car)) {
-//            if (cl.isHead) {
-//              nHeads++;
-//            }
-//            if (cl.isTail){
-//              nTails++;
-//            }
-//          }
-//        }
-//        cnt += (nHeads * nTails);
-//      }
-//      while (cnt > 0) {
-//        count *= cnt;
-//        cnt--;
-//      }
-
-      if (components == null) {
+      if (lettergraph.nodes == null) {
         count = null;
       } else {
-        while (components > 0) {
-          count *= components;
-          components--;
+        for (LetterGraphNode node in lettergraph.nodes) {
+          if (node.outgoing.length > 1 || node.incoming.length > 1) {
+            count = null;
+            break;
+          }
+        }
+        if (count != null) {
+          var candrf = lettergraph.numberOfComponentsAndRepetitionFactor();
+          log(candrf);
+        
+          if (candrf == null) {
+            count = null;
+          } else {
+            var components = candrf[0];
+            var repetitionFactor = candrf[1];
+            count = repetitionFactor * factorial(components);
+            count = count % 1000000007; 
+          }
         }
       }
       
